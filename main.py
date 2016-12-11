@@ -45,7 +45,7 @@ class WelcomePage(Handler):
         if user_name:
             self.render("welcome.html",username=user_name)
         else:
-            self.redirect("/login")
+            self.redirect("/signup")
 
 class Login(Handler):
     def get(self):
@@ -68,6 +68,12 @@ class Login(Handler):
             has_error = True
             login_error = "Invalid login"
             self.render("login.html", login_error=login_error)
+
+
+class Logout(Handler):
+    def get(self):
+        self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
+        self.redirect("/signup")
 
 
 class SignupForm(Handler):
@@ -135,4 +141,4 @@ class SignupForm(Handler):
         if user:
             return True
 
-app = webapp2.WSGIApplication([('/signup', SignupForm),('/login',Login),('/welcome',WelcomePage)], debug=True)
+app = webapp2.WSGIApplication([('/signup', SignupForm),('/login',Login),('/logout',Logout),('/welcome',WelcomePage)], debug=True)
