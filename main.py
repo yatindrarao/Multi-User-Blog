@@ -3,9 +3,30 @@ import os
 import jinja2
 import urllib
 import re
+from google.appengine.ext import db
+import hmac
 
 template_dir = os.path.join(os.path.dirname(__file__),'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),autoescape=True)
+
+SECRET = 'imsosecret'
+def hash_str(s):
+    return hmac.new(SECRET,s).hexdigest()
+
+def make_secure_val(s):
+    return "%s|%s" % (s, hash_str(s))
+
+def check_secure_val(h):
+    val = h.split('|')[0]
+    if h == make_secure_val(val):
+        return val
+
+
+class User(db.Model):
+    username = db.StringProperty(required = True)
+    password = db.StringProperty(required = True)
+    email = db.StringProperty()
+    created = db.DateTimeProperty(auto_now_add = True)
 
 
 class Handler(webapp2.RequestHandler):
@@ -19,13 +40,14 @@ class Handler(webapp2.RequestHandler):
 
 class WelcomePage(Handler):
     def get(self):
-        username = self.request.get("username")
-        if username:
-            self.render("welcome.html",username=username)
+        username = self.request.cookies.get('username')
+        user_name = check_secure_val(username)
+        if user_name:
+            self.render("welcome.html",username=user_name)
         else:
             self.redirect("/signup")
 
-                
+
 class SignupForm(Handler):
     """docstring for SignupForm Class."""
     def get(self):
@@ -46,6 +68,9 @@ class SignupForm(Handler):
         if self.invalid_username(username=username):
             has_error = True
             params["username_error"] = "That's not a valid username."
+        elif self.user_exists(username=username):
+            has_error = True
+            params["username_error"] = "User already exists!"
         if self.invalid_password(password=password):
             has_error = True
             params["password_error"] = "That was not a valid password."
@@ -61,7 +86,12 @@ class SignupForm(Handler):
         if has_error:
             self.render("signupform.html", **params)
         else:
-            self.redirect("/welcome?username="+username)
+            user = User(username=username, password=password, email=email)
+            user.put()
+            username = make_secure_val(str(username))
+            self.response.headers['Content-Type'] = "text/plain"
+            self.response.headers.add_header('Set-Cookie', 'username=%s; Path=/'% username)
+            self.redirect("/welcome")
 
     def invalid_username(self,username):
         USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
@@ -78,5 +108,12 @@ class SignupForm(Handler):
             return True;
         else:
             return False;
+    def user_exists(self, username):
+        # user = db.GqlQuery("SELECT * from User WHERE username = '%s'" % username)
+        # user = db.GqlQuery("SELECT * from User WHERE username = 'yatindra'")
+        user = db.Query(User).filter("username = ", username).fetch(10)
+
+        if user:
+            return True
 
 app = webapp2.WSGIApplication([('/signup', SignupForm),('/welcome',WelcomePage)], debug=True)
