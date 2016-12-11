@@ -45,7 +45,29 @@ class WelcomePage(Handler):
         if user_name:
             self.render("welcome.html",username=user_name)
         else:
-            self.redirect("/signup")
+            self.redirect("/login")
+
+class Login(Handler):
+    def get(self):
+        self.render("login.html")
+    def post(self):
+        username = self.request.get("username")
+        password = self.request.get("password")
+        has_error = False
+        if username and password:
+            user = db.Query(User).filter("username = ", username).filter("password = ", password).fetch(1)
+            if not user:
+                has_error = True
+                login_error = "Invalid login"
+                self.render("login.html", login_error=login_error)
+            else:
+                username = make_secure_val(str(username))
+                self.response.headers.add_header('Set-Cookie', 'username=%s; Path=/'% username)
+                self.redirect("/welcome")
+        else:
+            has_error = True
+            login_error = "Invalid login"
+            self.render("login.html", login_error=login_error)
 
 
 class SignupForm(Handler):
@@ -109,11 +131,8 @@ class SignupForm(Handler):
         else:
             return False;
     def user_exists(self, username):
-        # user = db.GqlQuery("SELECT * from User WHERE username = '%s'" % username)
-        # user = db.GqlQuery("SELECT * from User WHERE username = 'yatindra'")
-        user = db.Query(User).filter("username = ", username).fetch(10)
-
+        user = db.Query(User).filter("username = ", username).fetch(1)
         if user:
             return True
 
-app = webapp2.WSGIApplication([('/signup', SignupForm),('/welcome',WelcomePage)], debug=True)
+app = webapp2.WSGIApplication([('/signup', SignupForm),('/login',Login),('/welcome',WelcomePage)], debug=True)
