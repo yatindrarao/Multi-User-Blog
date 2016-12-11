@@ -37,7 +37,9 @@ class Handler(webapp2.RequestHandler):
         return t.render(params)
     def render(self,template,**kw):
         self.write(self.render_str(template,**kw))
-
+    def set_cookie(self, name, val):
+        cookie_val = make_secure_val(val)
+        self.response.headers.add_header('Set-Cookie', '%s=%s; Path=/'% (name, cookie_val))
 class WelcomePage(Handler):
     def get(self):
         username = self.request.cookies.get('username')
@@ -61,8 +63,7 @@ class Login(Handler):
                 login_error = "Invalid login"
                 self.render("login.html", login_error=login_error)
             else:
-                username = make_secure_val(str(username))
-                self.response.headers.add_header('Set-Cookie', 'username=%s; Path=/'% username)
+                self.set_cookie('username',str(username))
                 self.redirect("/welcome")
         else:
             has_error = True
@@ -116,9 +117,7 @@ class SignupForm(Handler):
         else:
             user = User(username=username, password=password, email=email)
             user.put()
-            username = make_secure_val(str(username))
-            self.response.headers['Content-Type'] = "text/plain"
-            self.response.headers.add_header('Set-Cookie', 'username=%s; Path=/'% username)
+            self.set_cookie('username',str(username))
             self.redirect("/welcome")
 
     def invalid_username(self,username):
