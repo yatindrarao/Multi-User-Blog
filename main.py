@@ -5,10 +5,14 @@ import urllib
 import re
 from google.appengine.ext import db
 import hmac
+import hashlib
+import random
+import string
 
 template_dir = os.path.join(os.path.dirname(__file__),'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),autoescape=True)
 
+# Cookie hashing
 SECRET = 'imsosecret'
 def hash_str(s):
     return hmac.new(SECRET,s).hexdigest()
@@ -21,6 +25,18 @@ def check_secure_val(h):
     if h == make_secure_val(val):
         return val
 
+# Password Hashing
+def make_salt():
+    return ''.join(random.choice(string.letters) for x in xrange(5))
+def make_pw_hash(name, pw, salt = None):
+    if not salt:
+        salt = make_salt()
+    h = hashlib.sha256(name + pw + salt).hexdigest()
+    return '%s,%s' % (h, salt)
+
+def valid_pw(name, pw, h):
+    salt = h.split(",")[1]
+    return h == make_pw_hash(name, pw, salt)
 
 class User(db.Model):
     username = db.StringProperty(required = True)
@@ -57,14 +73,17 @@ class Login(Handler):
         password = self.request.get("password")
         has_error = False
         if username and password:
-            user = db.Query(User).filter("username = ", username).filter("password = ", password).fetch(1)
-            if not user:
+            u = db.GqlQuery("select * from User where username = '%s'" % username)
+            user = u.get()
+            h = user.password
+
+            if user and valid_pw(username, password, h):
+                self.set_cookie('username',str(username))
+                self.redirect("/welcome")
+            else:
                 has_error = True
                 login_error = "Invalid login"
                 self.render("login.html", login_error=login_error)
-            else:
-                self.set_cookie('username',str(username))
-                self.redirect("/welcome")
         else:
             has_error = True
             login_error = "Invalid login"
@@ -115,6 +134,7 @@ class SignupForm(Handler):
         if has_error:
             self.render("signupform.html", **params)
         else:
+            password = make_pw_hash(username,password)
             user = User(username=username, password=password, email=email)
             user.put()
             self.set_cookie('username',str(username))
