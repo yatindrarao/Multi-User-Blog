@@ -199,11 +199,14 @@ class Post(db.Model):
     content = db.TextProperty(required = True)
     created_at = db.DateTimeProperty(auto_now_add = True)
     created_by = db.IntegerProperty(required = True)
-    likes = db.IntegerProperty(default = 0)
     #
     # def render(self):
     #     self._render_text = self.content.replace('\n', '<br>')
     #     return render_str("post.html", post=self)
+
+class Likes(db.Model):
+    post = db.ReferenceProperty(Post)
+    user = db.ReferenceProperty(User)
 
 class MainPage(Handler):
     def get(self):
@@ -218,6 +221,8 @@ class BlogPost(Handler):
         if self.valid_user():
             post = Post.get_by_id(int(id))
             if post:
+                # likes = Likes.all().filter("post =", post)
+                likes = post.likes_set.get()
                 self.render("post.html", post=post)
             else:
                 self.error(404)
@@ -291,16 +296,20 @@ class LikePost(Handler):
     def post(self):
         id = self.request.get('post_key')
         post = Post.get_by_id(int(id))
+        posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
         if self.authenticate_user(post.created_by):
-            posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
             error = "You cannot like your own posts"
             self.render("blog.html", posts=posts, error=error)
         else:
-            likes = post.likes + 1
-            post.likes = likes
-            post.put()
-            posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
-            self.redirect("/blog")
+            likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
+            print "likes are %s"% likes
+            if likes:
+                error = "You already liked this post"
+                self.render("blog.html", posts=posts, error=error)
+            else:
+                like = Likes(post=post, user=self.user)
+                like.put()
+                self.redirect("/blog")
 
 app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/login', Login),
