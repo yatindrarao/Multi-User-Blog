@@ -46,6 +46,15 @@ class User(db.Model):
     email = db.StringProperty()
     created = db.DateTimeProperty(auto_now_add = True)
 
+    @classmethod
+    def by_id(cls, uid):
+        return User.get_by_id(uid)
+
+    @classmethod
+    def by_name(cls, name):
+        u = User.all().filter('username =', name).get()
+        return u
+
 
 class Handler(webapp2.RequestHandler):
     def write(self,*a,**kw):
@@ -67,6 +76,14 @@ class Handler(webapp2.RequestHandler):
             return True
         else:
             return False
+    def initialize(self, *a, **kw):
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        username = check_secure_val(self.get_username())
+        self.user = User.by_name(username)
+
+    # def authenticate_user(self, id):
+    #     user = User.get_by_id(id)
+    #     return id and user.created_by
 
 class WelcomePage(Handler):
     def get(self):
@@ -179,6 +196,7 @@ class Post(db.Model):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created_at = db.DateTimeProperty(auto_now_add = True)
+    created_by = db.IntegerProperty(required = True)
     #
     # def render(self):
     #     self._render_text = self.content.replace('\n', '<br>')
@@ -213,8 +231,9 @@ class NewPost(Handler):
     def post(self):
         subject = self.request.get("subject")
         content = self.request.get("content")
+        created_by = self.user.key().id_or_name()
         if subject and content:
-            post = Post(subject=subject, content=content)
+            post = Post(subject=subject, content=content, created_by=created_by)
             post.put()
             self.redirect("/blog/%s" % post.key().id())
         else:
