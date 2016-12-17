@@ -56,6 +56,7 @@ class Handler(webapp2.RequestHandler):
     def set_cookie(self, name, val):
         cookie_val = make_secure_val(val)
         self.response.headers.add_header('Set-Cookie', '%s=%s; Path=/'% (name, cookie_val))
+
 class WelcomePage(Handler):
     def get(self):
         username = self.request.cookies.get('username')
@@ -160,4 +161,45 @@ class SignupForm(Handler):
         if user:
             return True
 
-app = webapp2.WSGIApplication([('/signup', SignupForm),('/login',Login),('/logout',Logout),('/welcome',WelcomePage)], debug=True)
+# Blog Code
+class Post(db.Model):
+    subject = db.StringProperty(required = True)
+    content = db.TextProperty(required = True)
+    created_at = db.DateTimeProperty(auto_now_add = True)
+
+class MainPage(Handler):
+    def get(self):
+        posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
+        self.render("blog.html", posts=posts)
+
+
+class BlogPost(Handler):
+    def get(self, id):
+        post = Post.get_by_id(int(id))
+        if post:
+            self.render("post.html", post=post)
+        else:
+            self.error(404)
+
+class NewPost(Handler):
+    def get(self):
+        self.render("newpost.html")
+    def post(self):
+        subject = self.request.get("subject")
+        content = self.request.get("content")
+        if subject and content:
+            post = Post(subject=subject, content=content)
+            post.put()
+            self.redirect("/blog/%s" % post.key().id())
+        else:
+            error = "subject and content both are required!"
+            self.render("newpost.html", subject=subject, content=content, error=error)
+
+app = webapp2.WSGIApplication([('/signup', SignupForm),
+                               ('/login',Login),
+                               ('/logout',Logout),
+                               ('/welcome',WelcomePage),
+                               ('/blog', MainPage),
+                               ('/blog/newpost',NewPost),
+                               ('/blog/(\d+)', BlogPost)
+                               ], debug=True)
