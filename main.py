@@ -85,7 +85,9 @@ class Login(Handler):
         password = self.request.get("password")
         has_error = False
         if username and password:
-            u = db.GqlQuery("select * from User where username = '%s'" % username)
+            u = db.GqlQuery(
+                        "select * from User where username = '%s'" % username
+                        )
             user = u.get()
             h = user.password
 
@@ -224,7 +226,8 @@ class EditPost(Handler):
     def get(self, id):
         if self.valid_user():
             post = Post.get_by_id(int(id))
-            self.render("editpost.html", subject=post.subject, content=post.content, id=id)
+            self.render("editpost.html", subject=post.subject,
+                        content=post.content, id=id)
         else:
             self.redirect("/login")
 
@@ -239,7 +242,8 @@ class EditPost(Handler):
             self.redirect("/blog/%s" % post.key().id())
         else:
             error = "subject and content both are required!"
-            self.render("editpost.html", subject=subject, content=content, id=id, error=error)
+            self.render("editpost.html", subject=subject, content=content,
+                        id=id, error=error)
 
 class DestroyPost(Handler):
     def post(self):
