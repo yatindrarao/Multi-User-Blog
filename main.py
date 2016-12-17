@@ -23,9 +23,10 @@ def make_secure_val(s):
     return "%s|%s" % (s, hash_str(s))
 
 def check_secure_val(h):
-    val = h.split('|')[0]
-    if h == make_secure_val(val):
-        return val
+    if h:
+        val = h.split('|')[0]
+        if h == make_secure_val(val):
+            return val
 
 # Password Hashing
 def make_salt():
@@ -81,6 +82,11 @@ class Handler(webapp2.RequestHandler):
         username = check_secure_val(self.get_username())
         self.user = User.by_name(username)
 
+        # cookie_val = self.get_username()
+        # if cookie_val:
+        #     username = check_secure_val(cookie_val)
+        #     self.user = User.by_name(username)
+
     def authenticate_user(self, id):
         if self.user.key().id_or_name() == id:
             return True
@@ -104,17 +110,18 @@ class Login(Handler):
         password = self.request.get("password")
         has_error = False
         if username and password:
-            u = db.GqlQuery(
-                        "select * from User where username = '%s'" % username
-                        )
+            u = db.GqlQuery("select * from User where username = '%s'" % username)
             user = u.get()
-            h = user.password
-
-            if user and valid_pw(username, password, h):
-                self.set_cookie('username',str(username))
-                self.redirect("/welcome")
+            if user:
+                h = user.password
+                if valid_pw(username, password, h):
+                    self.set_cookie('username',str(username))
+                    self.redirect("/welcome")
+                else:
+                    has_error = True
+                    login_error = "Invalid login"
+                    self.render("login.html", login_error=login_error)
             else:
-                has_error = True
                 login_error = "Invalid login"
                 self.render("login.html", login_error=login_error)
         else:
@@ -302,7 +309,6 @@ class LikePost(Handler):
             self.render("blog.html", posts=posts, error=error)
         else:
             likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
-            print "likes are %s"% likes
             if likes:
                 error = "You already liked this post"
                 self.render("blog.html", posts=posts, error=error)
