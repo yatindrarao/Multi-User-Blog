@@ -58,8 +58,10 @@ class Handler(webapp2.RequestHandler):
         cookie_val = make_secure_val(val)
         self.response.headers.add_header('Set-Cookie',
                                          '%s=%s; Path=/'% (name, cookie_val))
+    def get_username(self):
+        return self.request.cookies.get('username')
     def valid_user(self):
-        username = self.request.cookies.get('username')
+        username = self.get_username()
         if check_secure_val(username):
             return True
         else:
@@ -67,7 +69,9 @@ class Handler(webapp2.RequestHandler):
 
 class WelcomePage(Handler):
     def get(self):
-        if self.valid_user():
+        username = self.get_username()
+        user_name = check_secure_val(username)
+        if user_name:
             self.render("welcome.html",username=user_name)
         else:
             self.redirect("/login")
@@ -172,6 +176,10 @@ class Post(db.Model):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created_at = db.DateTimeProperty(auto_now_add = True)
+    #
+    # def render(self):
+    #     self._render_text = self.content.replace('\n', '<br>')
+    #     return render_str("post.html", post=self)
 
 class MainPage(Handler):
     def get(self):
@@ -211,11 +219,33 @@ class NewPost(Handler):
             self.render("newpost.html", subject=subject,
                         content=content, error=error)
 
+class EditPost(Handler):
+    def get(self, id):
+        if self.valid_user():
+            post = Post.get_by_id(int(id))
+            self.render("editpost.html", subject=post.subject, content=post.content, id=id)
+        else:
+            self.redirect("/login")
+
+    def post(self, id):
+        subject = self.request.get("subject")
+        content = self.request.get("content")
+        post = Post.get_by_id(int(id))
+        if subject and content:
+            post.subject = subject
+            post.content = content
+            post.put()
+            self.redirect("/blog/%s" % post.key().id())
+        else:
+            error = "subject and content both are required!"
+            self.render("editpost.html", subject=subject, content=content, id=id, error=error)
+
 app = webapp2.WSGIApplication([('/signup', SignupForm),
-                               ('/login',Login),
-                               ('/logout',Logout),
-                               ('/welcome',WelcomePage),
+                               ('/login', Login),
+                               ('/logout', Logout),
+                               ('/welcome', WelcomePage),
                                ('/blog', MainPage),
-                               ('/blog/newpost',NewPost),
+                               ('/blog/newpost', NewPost),
+                               ('/blog/(\d+)/edit', EditPost),
                                ('/blog/(\d+)', BlogPost)
                                ], debug=True)
