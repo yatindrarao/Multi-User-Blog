@@ -10,7 +10,8 @@ import random
 import string
 
 template_dir = os.path.join(os.path.dirname(__file__),'templates')
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),autoescape=True)
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
+                               autoescape=True)
 
 # Cookie hashing
 SECRET = 'imsosecret'
@@ -55,7 +56,8 @@ class Handler(webapp2.RequestHandler):
         self.write(self.render_str(template,**kw))
     def set_cookie(self, name, val):
         cookie_val = make_secure_val(val)
-        self.response.headers.add_header('Set-Cookie', '%s=%s; Path=/'% (name, cookie_val))
+        self.response.headers.add_header('Set-Cookie',
+                                         '%s=%s; Path=/'% (name, cookie_val))
     def valid_user(self):
         username = self.request.cookies.get('username')
         if check_secure_val(username):
