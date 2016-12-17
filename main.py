@@ -208,7 +208,8 @@ class NewPost(Handler):
             self.redirect("/blog/%s" % post.key().id())
         else:
             error = "subject and content both are required!"
-            self.render("newpost.html", subject=subject, content=content, error=error)
+            self.render("newpost.html", subject=subject,
+                        content=content, error=error)
 
 app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/login',Login),
