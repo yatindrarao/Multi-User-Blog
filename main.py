@@ -8,6 +8,7 @@ import hmac
 import hashlib
 import random
 import string
+import time
 
 template_dir = os.path.join(os.path.dirname(__file__),'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
@@ -240,6 +241,18 @@ class EditPost(Handler):
             error = "subject and content both are required!"
             self.render("editpost.html", subject=subject, content=content, id=id, error=error)
 
+class DestroyPost(Handler):
+    def post(self):
+        id = self.request.get('id')
+        post = Post.get_by_id(int(id))
+        res = db.delete(post)
+        time.sleep(0.1)
+        '''
+        To solve the eventual consistency issue use ancestor query by
+        creating entity group  instead of time.sleep()
+        '''
+        self.redirect("/blog")
+
 app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/login', Login),
                                ('/logout', Logout),
@@ -247,5 +260,6 @@ app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/blog', MainPage),
                                ('/blog/newpost', NewPost),
                                ('/blog/(\d+)/edit', EditPost),
+                               ('/blog/delete', DestroyPost),
                                ('/blog/(\d+)', BlogPost)
                                ], debug=True)
