@@ -56,15 +56,19 @@ class Handler(webapp2.RequestHandler):
     def set_cookie(self, name, val):
         cookie_val = make_secure_val(val)
         self.response.headers.add_header('Set-Cookie', '%s=%s; Path=/'% (name, cookie_val))
+    def valid_user(self):
+        username = self.request.cookies.get('username')
+        if check_secure_val(username):
+            return True
+        else:
+            return False
 
 class WelcomePage(Handler):
     def get(self):
-        username = self.request.cookies.get('username')
-        user_name = check_secure_val(username)
-        if user_name:
+        if self.valid_user():
             self.render("welcome.html",username=user_name)
         else:
-            self.redirect("/signup")
+            self.redirect("/login")
 
 class Login(Handler):
     def get(self):
@@ -94,7 +98,7 @@ class Login(Handler):
 class Logout(Handler):
     def get(self):
         self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
-        self.redirect("/signup")
+        self.redirect("/login")
 
 
 class SignupForm(Handler):
@@ -169,21 +173,30 @@ class Post(db.Model):
 
 class MainPage(Handler):
     def get(self):
-        posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
-        self.render("blog.html", posts=posts)
-
+        if self.valid_user():
+            posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
+            self.render("blog.html", posts=posts)
+        else:
+            self.redirect("/login")
 
 class BlogPost(Handler):
     def get(self, id):
-        post = Post.get_by_id(int(id))
-        if post:
-            self.render("post.html", post=post)
+        if self.valid_user():
+            post = Post.get_by_id(int(id))
+            if post:
+                self.render("post.html", post=post)
+            else:
+                self.error(404)
         else:
-            self.error(404)
+            self.redirect("/login")
 
 class NewPost(Handler):
     def get(self):
-        self.render("newpost.html")
+        if self.valid_user():
+            self.render("newpost.html")
+        else:
+            self.redirect("/login")
+
     def post(self):
         subject = self.request.get("subject")
         content = self.request.get("content")
