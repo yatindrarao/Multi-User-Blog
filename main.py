@@ -81,9 +81,11 @@ class Handler(webapp2.RequestHandler):
         username = check_secure_val(self.get_username())
         self.user = User.by_name(username)
 
-    # def authenticate_user(self, id):
-    #     user = User.get_by_id(id)
-    #     return id and user.created_by
+    def authenticate_user(self, id):
+        if self.user.key().id_or_name() == id:
+            return True
+        else:
+            return False
 
 class WelcomePage(Handler):
     def get(self):
@@ -245,8 +247,12 @@ class EditPost(Handler):
     def get(self, id):
         if self.valid_user():
             post = Post.get_by_id(int(id))
-            self.render("editpost.html", subject=post.subject,
-                        content=post.content, id=id)
+            if self.authenticate_user(post.created_by):
+                self.render("editpost.html", subject=post.subject,
+                            content=post.content, id=id)
+            else:
+                error = "You are not authorized to edit this post"
+                self.render("post.html", post=post, error=error)
         else:
             self.redirect("/login")
 
@@ -268,13 +274,17 @@ class DestroyPost(Handler):
     def post(self):
         id = self.request.get('id')
         post = Post.get_by_id(int(id))
-        res = db.delete(post)
-        time.sleep(0.1)
-        '''
-        To solve the eventual consistency issue use ancestor query by
-        creating entity group  instead of time.sleep()
-        '''
-        self.redirect("/blog")
+        if self.authenticate_user(post.created_by):
+            res = db.delete(post)
+            time.sleep(0.1)
+            '''
+            To solve the eventual consistency issue use ancestor query by
+            creating entity group  instead of time.sleep()
+            '''
+            self.redirect("/blog")
+        else:
+            error = "You are not authorized to delete this post"
+            self.render("post.html", post=post, error=error)
 
 app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/login', Login),
