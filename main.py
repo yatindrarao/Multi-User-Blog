@@ -16,15 +16,17 @@ template_dir = os.path.join(os.path.dirname(__file__),'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
 
-# Cookie hashing
+# Cookie Hashing
 SECRET = 'imsosecret'
 def hash_str(s):
+    # Creates hashed value of string 's' using HMAC algo
     return hmac.new(SECRET,s).hexdigest()
 
 def make_secure_val(s):
     return "%s|%s" % (s, hash_str(s))
 
 def check_secure_val(h):
+    # Validates value 'h' by comparing hash value
     if h:
         val = h.split('|')[0]
         if h == make_secure_val(val):
@@ -33,7 +35,10 @@ def check_secure_val(h):
 # Password Hashing
 def make_salt():
     return ''.join(random.choice(string.letters) for x in xrange(5))
+
 def make_pw_hash(name, pw, salt = None):
+    # creates hash value from name, password by using SHA256 algo
+    # and returns hashed password
     if not salt:
         salt = make_salt()
     h = hashlib.sha256(name + pw + salt).hexdigest()
@@ -74,25 +79,29 @@ class Handler(webapp2.RequestHandler):
     def get_username(self):
         return self.request.cookies.get('username')
 
-    def valid_user(self):
-        username = self.get_username()
-        if check_secure_val(username):
-            return True
-        else:
-            return False
-
     def initialize(self, *a, **kw):
+        '''
+        This method is called on each request, It sets self.user to current
+        logged in user, which is used to athenticate user on every request.
+        '''
         webapp2.RequestHandler.initialize(self, *a, **kw)
         username = check_secure_val(self.get_username())
         self.user = User.by_name(username)
 
     def authenticate_user(self, id):
+        '''
+        This method authorizes user to edit/delete their post and comments
+        and also check their permissions to like only other's post.
+        '''
         if self.user.key().id_or_name() == id:
             return True
         else:
             return False
 
 class WelcomePage(Handler):
+    '''
+    This class handles welcome page after login
+    '''
     def get(self):
         if self.user:
             self.render("welcome.html",username=self.user.username)
@@ -106,6 +115,7 @@ class Login(Handler):
         username = self.request.get("username")
         password = self.request.get("password")
         has_error = False
+
         if username and password:
             u = db.GqlQuery("select * from User where username = '%s'" % username)
             user = u.get()
@@ -115,13 +125,16 @@ class Login(Handler):
                     self.set_cookie('username',str(username))
                     self.redirect("/welcome")
                 else:
+                    # if password is invalid, rerender form with error msg
                     has_error = True
                     login_error = "Invalid login"
                     self.render("login.html", login_error=login_error)
             else:
+                # If no user is present rerender form with error message
                 login_error = "Invalid login"
                 self.render("login.html", login_error=login_error)
         else:
+            # If username or password is empty, rerender form with error msg
             has_error = True
             login_error = "Invalid login"
             self.render("login.html", login_error=login_error)
@@ -130,28 +143,29 @@ class Login(Handler):
 class Logout(Handler):
     def get(self):
         if self.user:
+            # Clears cookie in browser and redirect to login page
             self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
             self.redirect("/login")
         else:
             self.redirect("/login")
 
 class SignupForm(Handler):
-    """docstring for SignupForm Class."""
+    '''
+    This class handles signup for user account
+    '''
     def get(self):
-        if self.request.get("username"):
-            pass
         self.render("signupform.html")
 
     def post(self):
+        # store values from posted form into variables
         username = self.request.get("username")
         password = self.request.get("password")
         verify = self.request.get("verify")
         email = self.request.get("email")
 
         params = dict(username = username, email = email)
-
         has_error = False
-
+        # Sets appropriate error msg
         if self.invalid_username(username=username):
             has_error = True
             params["username_error"] = "That's not a valid username."
@@ -169,16 +183,21 @@ class SignupForm(Handler):
         if email and self.invalid_email(email=email):
             has_error = True
             params["email_error"] = "That's not a valid email"
-
+        # If there is any error, rerender signup page with error msg
         if has_error:
             self.render("signupform.html", **params)
         else:
+            '''
+            create hashed password and store hashed username cookie and
+            redirects to /welcome page
+            '''
             password = make_pw_hash(username,password)
             user = User(username=username, password=password, email=email)
             user.put()
             self.set_cookie('username',str(username))
             self.redirect("/welcome")
 
+# Validation methods
     def invalid_username(self,username):
         USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
         return not USER_RE.match(username)
@@ -209,14 +228,17 @@ class Post(db.Model):
     created_at = db.DateTimeProperty(auto_now_add = True)
     created_by = db.IntegerProperty(required = True)
     last_modified = db.DateTimeProperty(auto_now = True)
-    #
-    # def render(self):
-    #     self._render_text = self.content.replace('\n', '<br>')
-    #     return render_str("post.html", post=self)
+
     @classmethod
     def by_id(cls, id):
         key = db.Key.from_path('Post', int(id), parent=blog_key())
         return db.get(key)
+
+    # For replacing taking in account newlines
+    # def render(self):
+    #     self._render_text = self.content.replace('\n', '<br>')
+    #     return render_str("post.html", post=self)
+
 
 
 class Likes(db.Model):
@@ -232,14 +254,21 @@ class Comment(db.Model):
     last_modified = db.DateTimeProperty(auto_now = True)
 
 class MainPage(Handler):
+    '''
+    This class handles blog index page by rendering all latest posts.
+    '''
     def get(self):
         if self.user:
+            # Fetch all posts latest created first
             posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
             self.render("blog.html", posts=posts)
         else:
             self.redirect("/login")
 
 class BlogPost(Handler):
+    '''
+    This class handles permalink of post
+    '''
     def get(self, id):
         if self.user:
             post = Post.by_id(id)
@@ -268,6 +297,7 @@ class NewPost(Handler):
             post.put()
             self.redirect("/blog/%s" % post.key().id())
         else:
+            # If username or password are empty, rerender form with error msg
             error = "subject and content both are required!"
             self.render("newpost.html", subject=subject,
                         content=content, error=error)
@@ -276,6 +306,7 @@ class EditPost(Handler):
     def get(self, id):
         if self.user:
             post = Post.by_id(id)
+            # Authenticates owner of the post
             if self.authenticate_user(post.created_by):
                 self.render("editpost.html", subject=post.subject,
                             content=post.content, id=id)
@@ -308,33 +339,37 @@ class DestroyPost(Handler):
                 # db.delete(post.comment_set)  # To Delete likes and comments
                 # db.delete(post.likes_set)
                 res = db.delete(post)
+                # time.sleep() to solve the issue of displaying latest result
                 time.sleep(0.1)
-                '''
-                To solve the eventual consistency issue use ancestor query by
-                creating entity group  instead of time.sleep()
-                '''
                 self.redirect("/blog")
             else:
                 error = "You are not authorized to delete this post"
                 self.render("post.html", post=post, error=error)
         else:
             self.redirect("/login")
+
+
 class LikePost(Handler):
     def post(self):
         if self.user:
             id = self.request.get('post_id')
             post = Post.by_id(id)
             if self.authenticate_user(post.created_by):
+                # User cannot like his own posts
                 error = "You cannot like your own posts"
                 self.render("post.html", post=post, error=error)
             else:
                 likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
                 if likes:
+                    # User can like any post only once
                     error = "You already liked this post before"
                     self.render("post.html", post=post, error=error)
                 else:
                     like = Likes(post=post, user=self.user)
                     like.put()
+                    '''
+                    time.sleep() to solve the issue of displaying latest result
+                    '''
                     time.sleep(0.1)
                     self.redirect("/blog/" + str(post.key().id_or_name()))
         else:
@@ -350,10 +385,12 @@ class NewComment(Handler):
             if comment:
                 comment = Comment(post=post, user=self.user, comment=comment)
                 comment.put()
+                # time.sleep() to solve the issue of displaying latest result
                 time.sleep(0.1)
                 self.redirect("/blog/" + str(post.key().id_or_name()))
             else:
-                error = "Comment is required"
+                # Comment can't be blank
+                error = "Comment can't be blank"
                 self.render("post.html", post=post, comment_error=error)
         else:
             self.redirect("/login")
@@ -365,6 +402,7 @@ class EditComment(Handler):
             if self.authenticate_user(comment.user.key().id_or_name()):
                 self.render("comment.html", comment=comment, text=comment.comment)
             else:
+                # User can edit his own comments only
                 error = "You are authorized to edit this comment"
                 self.render("post.html",post=comment.post, comment_error=error)
         else:
@@ -377,9 +415,10 @@ class EditComment(Handler):
             if new_comment:
                 comment.comment = new_comment
                 comment.put()
+                time.sleep(0.1)
                 self.redirect("/blog/"+str(comment.post.key().id_or_name()))
             else:
-                error = "Comment can't be blank!"
+                error = "Comment can't be blank"
                 self.render("comment.html", error=error, text=new_comment, comment=comment)
         else:
             self.redirect("/login")
@@ -392,12 +431,9 @@ class DestroyComment(Handler):
             if self.authenticate_user(comment.user.key().id_or_name()):
                 res = db.delete(comment)
                 time.sleep(0.1)
-                '''
-                To solve the eventual consistency issue use ancestor query by
-                creating entity group  instead of time.sleep()
-                '''
                 self.redirect("/blog/" + str(post.key().id_or_name()))
             else:
+                # User can delete his comments only
                 error = "You are not authorized to delete this comment"
                 self.render("post.html", post=post, comment_error=error)
         else:
