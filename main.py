@@ -221,6 +221,12 @@ class Post(db.Model):
         key = db.Key.from_path('Post', int(id), parent=blog_key())
         return db.get(key)
 
+# def like_key(name = 'default'):
+#     return db.Key.from_path('likes', name)
+#
+# def comment_key(name = 'default'):
+#     return db.Key.from_path('comments', name)
+
 class Likes(db.Model):
     post = db.ReferenceProperty(Post)
     user = db.ReferenceProperty(User)
@@ -335,6 +341,7 @@ class LikePost(Handler):
             else:
                 like = Likes(post=post, user=self.user)
                 like.put()
+                time.sleep(0.1)
                 self.redirect("/blog/" + str(post.key().id_or_name()))
 
 class NewComment(Handler):
@@ -346,6 +353,7 @@ class NewComment(Handler):
             if comment:
                 comment = Comment(post=post, user=self.user, comment=comment)
                 comment.put()
+                time.sleep(0.1)
                 self.redirect("/blog/" + str(post.key().id_or_name()))
             else:
                 error = "Comment is required"
