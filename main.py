@@ -217,6 +217,14 @@ class Post(db.Model):
 class Likes(db.Model):
     post = db.ReferenceProperty(Post)
     user = db.ReferenceProperty(User)
+    created_at = db.DateTimeProperty(auto_now_add = True)
+
+class Comment(db.Model):
+    comment = db.TextProperty()
+    post = db.ReferenceProperty(Post)
+    user = db.ReferenceProperty(User)
+    created_at = db.DateTimeProperty(auto_now_add = True)
+    last_modified = db.DateTimeProperty()
 
 class MainPage(Handler):
     def get(self):
@@ -322,6 +330,67 @@ class LikePost(Handler):
                 like.put()
                 self.redirect("/blog/" + str(post.key().id_or_name()))
 
+class NewComment(Handler):
+    def post(self):
+        if self.user:
+            id = self.request.get('post_id')
+            comment = self.request.get('comment')
+            post = Post.get_by_id(int(id))
+            if comment:
+                comment = Comment(post=post, user=self.user, comment=comment)
+                comment.put()
+                self.redirect("/blog/" + str(post.key().id_or_name()))
+            else:
+                error = "Comment is required"
+                self.render("post.html", post=post, comment_error=error)
+        else:
+            self.redirect("/login")
+
+class EditComment(Handler):
+    def get(self, id):
+        if self.user:
+            comment = Comment.get_by_id(int(id))
+            if self.authenticate_user(comment.user.key().id_or_name()):
+                self.render("comment.html", comment=comment, text=comment.comment)
+            else:
+                error = "You are authorized to edit this comment"
+                self.render("post.html",post=comment.post, comment_error=error)
+        else:
+            self.redirect("/login")
+    def post(self, id):
+        if self.user:
+            new_comment = self.request.get('text')
+            comment = Comment.get_by_id(int(id))
+            if new_comment:
+                comment.comment = new_comment
+                comment.last_modified = datetime.datetime.now()
+                comment.put()
+                self.redirect("/blog/"+str(comment.post.key().id_or_name()))
+            else:
+                error = "Comment can't be blank!"
+                self.render("comment.html", error=error, text=new_comment, comment=comment)
+        else:
+            self.redirect("/login")
+
+class DestroyComment(Handler):
+    def post(self, id):
+        comment = Comment.get_by_id(int(id))
+        if self.user:
+            post = comment.post
+            if self.authenticate_user(comment.user.key().id_or_name()):
+                res = db.delete(comment)
+                time.sleep(0.1)
+                '''
+                To solve the eventual consistency issue use ancestor query by
+                creating entity group  instead of time.sleep()
+                '''
+                self.redirect("/blog/" + str(post.key().id_or_name()))
+            else:
+                error = "You are not authorized to delete this comment"
+                self.render("post.html", post=post, comment_error=error)
+        else:
+            self.redirect("/login")
+
 app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/login', Login),
                                ('/logout', Logout),
@@ -331,5 +400,8 @@ app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/blog/(\d+)/edit', EditPost),
                                ('/blog/like', LikePost),
                                ('/blog/delete', DestroyPost),
-                               ('/blog/(\d+)', BlogPost)
+                               ('/blog/(\d+)', BlogPost),
+                               ('/blog/comment', NewComment),
+                               ('/blog/comment/(\d+)', EditComment),
+                               ('/blog/comment/(\d+)/delete', DestroyComment),
                                ], debug=True)

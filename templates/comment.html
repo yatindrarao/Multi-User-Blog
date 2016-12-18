@@ -1,0 +1,9 @@
+<form action="/blog/comment/{{comment.key().id_or_name()}}" method="post">
+  <textarea name="text" rows="8" cols="40">{{text}}</textarea>
+  <br>
+  <input type="submit">
+  <a href="/blog/{{comment.post.key().id_or_name()}}">Cancel</a>
+  <div class="error">
+    {{error}}
+  </div>
+</form>
