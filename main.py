@@ -12,18 +12,23 @@ import time
 import datetime
 
 
-template_dir = os.path.join(os.path.dirname(__file__),'templates')
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
+
 
 # Cookie Hashing
 SECRET = 'imsosecret'
+
+
 def hash_str(s):
     # Creates hashed value of string 's' using HMAC algo
-    return hmac.new(SECRET,s).hexdigest()
+    return hmac.new(SECRET, s).hexdigest()
+
 
 def make_secure_val(s):
     return "%s|%s" % (s, hash_str(s))
+
 
 def check_secure_val(h):
     # Validates value 'h' by comparing hash value
@@ -32,11 +37,13 @@ def check_secure_val(h):
         if h == make_secure_val(val):
             return val
 
+
 # Password Hashing
 def make_salt():
     return ''.join(random.choice(string.letters) for x in xrange(5))
 
-def make_pw_hash(name, pw, salt = None):
+
+def make_pw_hash(name, pw, salt=None):
     # creates hash value from name, password by using SHA256 algo
     # and returns hashed password
     if not salt:
@@ -44,15 +51,17 @@ def make_pw_hash(name, pw, salt = None):
     h = hashlib.sha256(name + pw + salt).hexdigest()
     return '%s,%s' % (h, salt)
 
+
 def valid_pw(name, pw, h):
     salt = h.split(",")[1]
     return h == make_pw_hash(name, pw, salt)
 
+
 class User(db.Model):
-    username = db.StringProperty(required = True)
-    password = db.StringProperty(required = True)
+    username = db.StringProperty(required=True)
+    password = db.StringProperty(required=True)
     email = db.StringProperty()
-    created = db.DateTimeProperty(auto_now_add = True)
+    created = db.DateTimeProperty(auto_now_add=True)
 
     @classmethod
     def by_id(cls, uid):
@@ -65,17 +74,21 @@ class User(db.Model):
 
 
 class Handler(webapp2.RequestHandler):
-    def write(self,*a,**kw):
-        self.response.out.write(*a,**kw)
-    def render_str(self,template,**params):
+    def write(self, *a, **kw):
+        self.response.out.write(*a, **kw)
+
+    def render_str(self, template, **params):
         t = jinja_env.get_template(template)
         return t.render(params)
-    def render(self,template,**kw):
-        self.write(self.render_str(template,**kw))
+
+    def render(self, template, **kw):
+        self.write(self.render_str(template, **kw))
+
     def set_cookie(self, name, val):
         cookie_val = make_secure_val(val)
         self.response.headers.add_header('Set-Cookie',
-                                         '%s=%s; Path=/'% (name, cookie_val))
+                                         '%s=%s; Path=/' % (name, cookie_val))
+
     def get_username(self):
         return self.request.cookies.get('username')
 
@@ -98,31 +111,33 @@ class Handler(webapp2.RequestHandler):
         else:
             return False
 
+
 class WelcomePage(Handler):
     '''
     This class handles welcome page after login
     '''
     def get(self):
         if self.user:
-            self.render("welcome.html",username=self.user.username)
+            self.render("welcome.html", username=self.user.username)
         else:
             self.redirect("/login")
+
 
 class Login(Handler):
     def get(self):
         self.render("login.html")
+
     def post(self):
         username = self.request.get("username")
         password = self.request.get("password")
         has_error = False
-
         if username and password:
-            u = db.GqlQuery("select * from User where username = '%s'" % username)
+            u = db.GqlQuery("select *from User where username='%s'" % username)
             user = u.get()
             if user:
                 h = user.password
                 if valid_pw(username, password, h):
-                    self.set_cookie('username',str(username))
+                    self.set_cookie('username', str(username))
                     self.redirect("/welcome")
                 else:
                     # if password is invalid, rerender form with error msg
@@ -149,6 +164,7 @@ class Logout(Handler):
         else:
             self.redirect("/login")
 
+
 class SignupForm(Handler):
     '''
     This class handles signup for user account
@@ -163,7 +179,7 @@ class SignupForm(Handler):
         verify = self.request.get("verify")
         email = self.request.get("email")
 
-        params = dict(username = username, email = email)
+        params = dict(username=username, email=email)
         has_error = False
         # Sets appropriate error msg
         if self.invalid_username(username=username):
@@ -176,7 +192,7 @@ class SignupForm(Handler):
             has_error = True
             params["password_error"] = "That was not a valid password."
         else:
-            if self.invalid_verify(password=password,verify=verify):
+            if self.invalid_verify(password=password, verify=verify):
                 has_error = True
                 params["verify_error"] = "Your password did not match."
 
@@ -191,43 +207,48 @@ class SignupForm(Handler):
             create hashed password and store hashed username cookie and
             redirects to /welcome page
             '''
-            password = make_pw_hash(username,password)
+            password = make_pw_hash(username, password)
             user = User(username=username, password=password, email=email)
             user.put()
-            self.set_cookie('username',str(username))
+            self.set_cookie('username', str(username))
             self.redirect("/welcome")
 
 # Validation methods
-    def invalid_username(self,username):
+    def invalid_username(self, username):
         USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
         return not USER_RE.match(username)
-    def invalid_email(self,email):
+
+    def invalid_email(self, email):
         EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
         return not EMAIL_RE.match(email)
-    def invalid_password(self,password):
+
+    def invalid_password(self, password):
         PASS_RE = re.compile(r"^.{3,20}$")
         return not PASS_RE.match(password)
 
-    def invalid_verify(self,password,verify):
+    def invalid_verify(self, password, verify):
         if password != verify:
-            return True;
+            return True
         else:
-            return False;
+            return False
+
     def user_exists(self, username):
         user = db.Query(User).filter("username = ", username).fetch(1)
         if user:
             return True
 
+
 # Blog Code
-def blog_key(name = 'default'):
+def blog_key(name='default'):
     return db.Key.from_path('blogs', name)
 
+
 class Post(db.Model):
-    subject = db.StringProperty(required = True)
-    content = db.TextProperty(required = True)
-    created_at = db.DateTimeProperty(auto_now_add = True)
-    created_by = db.IntegerProperty(required = True)
-    last_modified = db.DateTimeProperty(auto_now = True)
+    subject = db.StringProperty(required=True)
+    content = db.TextProperty(required=True)
+    created_at = db.DateTimeProperty(auto_now_add=True)
+    created_by = db.IntegerProperty(required=True)
+    last_modified = db.DateTimeProperty(auto_now=True)
 
     @classmethod
     def by_id(cls, id):
@@ -240,18 +261,19 @@ class Post(db.Model):
     #     return render_str("post.html", post=self)
 
 
-
 class Likes(db.Model):
     post = db.ReferenceProperty(Post)
     user = db.ReferenceProperty(User)
-    created_at = db.DateTimeProperty(auto_now_add = True)
+    created_at = db.DateTimeProperty(auto_now_add=True)
+
 
 class Comment(db.Model):
     comment = db.TextProperty()
     post = db.ReferenceProperty(Post)
     user = db.ReferenceProperty(User)
-    created_at = db.DateTimeProperty(auto_now_add = True)
-    last_modified = db.DateTimeProperty(auto_now = True)
+    created_at = db.DateTimeProperty(auto_now_add=True)
+    last_modified = db.DateTimeProperty(auto_now=True)
+
 
 class MainPage(Handler):
     '''
@@ -264,6 +286,7 @@ class MainPage(Handler):
             self.render("blog.html", posts=posts)
         else:
             self.redirect("/login")
+
 
 class BlogPost(Handler):
     '''
@@ -280,6 +303,7 @@ class BlogPost(Handler):
         else:
             self.redirect("/login")
 
+
 class NewPost(Handler):
     def get(self):
         if self.user:
@@ -292,7 +316,7 @@ class NewPost(Handler):
         content = self.request.get("content")
         created_by = self.user.key().id_or_name()
         if subject and content:
-            post = Post(parent= blog_key(), subject=subject, content=content,
+            post = Post(parent=blog_key(), subject=subject, content=content,
                         created_by=created_by)
             post.put()
             self.redirect("/blog/%s" % post.key().id())
@@ -301,6 +325,7 @@ class NewPost(Handler):
             error = "subject and content both are required!"
             self.render("newpost.html", subject=subject,
                         content=content, error=error)
+
 
 class EditPost(Handler):
     def get(self, id):
@@ -329,6 +354,7 @@ class EditPost(Handler):
             error = "subject and content both are required!"
             self.render("editpost.html", subject=subject, content=content,
                         id=id, error=error)
+
 
 class DestroyPost(Handler):
     def post(self):
@@ -359,7 +385,8 @@ class LikePost(Handler):
                 error = "You cannot like your own posts"
                 self.render("post.html", post=post, error=error)
             else:
-                likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
+                likes = Likes.all().filter("post =", post).filter(
+                                                "user = ", self.user).count()
                 if likes:
                     # User can like any post only once
                     error = "You already liked this post before"
@@ -395,16 +422,19 @@ class NewComment(Handler):
         else:
             self.redirect("/login")
 
+
 class EditComment(Handler):
     def get(self, id):
         if self.user:
             comment = Comment.get_by_id(int(id))
             if self.authenticate_user(comment.user.key().id_or_name()):
-                self.render("comment.html", comment=comment, text=comment.comment)
+                self.render("comment.html",
+                            comment=comment, text=comment.comment)
             else:
                 # User can edit his own comments only
                 error = "You are authorized to edit this comment"
-                self.render("post.html",post=comment.post, comment_error=error)
+                self.render("post.html",
+                            post=comment.post, comment_error=error)
         else:
             self.redirect("/login")
 
@@ -419,9 +449,11 @@ class EditComment(Handler):
                 self.redirect("/blog/"+str(comment.post.key().id_or_name()))
             else:
                 error = "Comment can't be blank"
-                self.render("comment.html", error=error, text=new_comment, comment=comment)
+                self.render("comment.html",
+                            error=error, text=new_comment, comment=comment)
         else:
             self.redirect("/login")
+
 
 class DestroyComment(Handler):
     def post(self, id):
