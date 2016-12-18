@@ -95,7 +95,7 @@ class Handler(webapp2.RequestHandler):
 class WelcomePage(Handler):
     def get(self):
         if self.user:
-            self.render("welcome.html",username=user_name)
+            self.render("welcome.html",username=self.user.username)
         else:
             self.redirect("/login")
 
