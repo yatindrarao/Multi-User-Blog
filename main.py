@@ -203,6 +203,9 @@ class SignupForm(Handler):
             return True
 
 # Blog Code
+def blog_key(name = 'default'):
+    return db.Key.from_path('blogs', name)
+
 class Post(db.Model):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
@@ -213,6 +216,10 @@ class Post(db.Model):
     # def render(self):
     #     self._render_text = self.content.replace('\n', '<br>')
     #     return render_str("post.html", post=self)
+    @classmethod
+    def by_id(cls, id):
+        key = db.Key.from_path('Post', int(id), parent=blog_key())
+        return db.get(key)
 
 class Likes(db.Model):
     post = db.ReferenceProperty(Post)
@@ -237,7 +244,7 @@ class MainPage(Handler):
 class BlogPost(Handler):
     def get(self, id):
         if self.valid_user():
-            post = Post.get_by_id(int(id))
+            post = Post.by_id(id)
             if post:
                 # likes = Likes.all().filter("post =", post)
                 likes = post.likes_set.get()
@@ -259,8 +266,8 @@ class NewPost(Handler):
         content = self.request.get("content")
         created_by = self.user.key().id_or_name()
         if subject and content:
-            post = Post(subject=subject, content=content,
-                        created_by=created_by, last_modified=last_modified)
+            post = Post(parent= blog_key(), subject=subject, content=content,
+                        created_by=created_by)
             post.put()
             self.redirect("/blog/%s" % post.key().id())
         else:
@@ -271,7 +278,7 @@ class NewPost(Handler):
 class EditPost(Handler):
     def get(self, id):
         if self.valid_user():
-            post = Post.get_by_id(int(id))
+            post = Post.by_id(id)
             if self.authenticate_user(post.created_by):
                 self.render("editpost.html", subject=post.subject,
                             content=post.content, id=id)
@@ -284,7 +291,7 @@ class EditPost(Handler):
     def post(self, id):
         subject = self.request.get("subject")
         content = self.request.get("content")
-        post = Post.get_by_id(int(id))
+        post = Post.by_id(id)
         if subject and content:
             post.subject = subject
             post.content = content
@@ -298,8 +305,10 @@ class EditPost(Handler):
 class DestroyPost(Handler):
     def post(self):
         id = self.request.get('id')
-        post = Post.get_by_id(int(id))
+        post = Post.by_id(id)
         if self.authenticate_user(post.created_by):
+            # db.delete(post.comment_set)  # To Delete likes and comments
+            # db.delete(post.likes_set)
             res = db.delete(post)
             time.sleep(0.1)
             '''
@@ -314,7 +323,7 @@ class DestroyPost(Handler):
 class LikePost(Handler):
     def post(self):
         id = self.request.get('post_id')
-        post = Post.get_by_id(int(id))
+        post = Post.by_id(id)
         if self.authenticate_user(post.created_by):
             error = "You cannot like your own posts"
             self.render("post.html", post=post, error=error)
@@ -333,7 +342,7 @@ class NewComment(Handler):
         if self.user:
             id = self.request.get('post_id')
             comment = self.request.get('comment')
-            post = Post.get_by_id(int(id))
+            post = Post.by_id(id)
             if comment:
                 comment = Comment(post=post, user=self.user, comment=comment)
                 comment.put()
