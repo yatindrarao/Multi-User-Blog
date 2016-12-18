@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{post.subject}}</h1>
-<p>
+<div class="post-heading">
+  <div class="post-title">
+    {{post.subject}}
+  </div>
+  <div class="post-date">
+    {{post.created_at.strftime("%Y-%m-%d")}}
+  </div>
+</div>
+<div class="post-content">
   {{post.content}}
-</p>
-<br>
-<p>
-  created at : {{post.created_at.strftime("%Y-%m-%d")}}
-</p>
-<p>
-  last modified at : {{post.last_modified.strftime("%Y-%m-%d")}}
-</p>
-<p>
+</div>
+<div class="like">
+  total likes: {{post.likes_set.count()}}
   <form  action="/blog/like" method="post">
     <input type="hidden" name="post_id" value="{{post.key().id_or_name()}}">
     <button>Like</button>
@@ -19,45 +20,55 @@
       {{error}}
     </div>
   </form>
-</p>
-<p>
-  {{post.likes_set.count()}}
-</p>
-<a href="/blog/{{post.key().id_or_name()}}/edit">Edit</a>
-
-<form action="/blog/delete" method="POST">
-    <input type="hidden" name="id" value="{{post.key().id_or_name()}}" />
-    <input type="submit" value="delete">
-</form>
-<p>
-  Comment
-</p>
-<form action="/blog/comment" method="post">
-  <input type="hidden" name="post_id" value="{{post.key().id_or_name()}}">
-  <textarea name="comment" rows="4" cols="20">{{comment}}</textarea>
-  <br>
-  <input type="submit">
-</form>
-
-<div class="error">
-  {{comment_error}}
 </div>
-<hr>
-{% for comment in post.comment_set.order('-created_at') %}
+<div class="edit-post">
+  <table>
+    <tr>
+      <th>
+          <a href="/blog/{{post.key().id_or_name()}}/edit">Edit</a>
+      </th>
+      <th>
+        <form action="/blog/delete" method="POST">
+            <input type="hidden" name="id" value="{{post.key().id_or_name()}}" />
+            <input type="submit" class="delete" value="delete">
+        </form>
+      </th>
+    </tr>
+  </table>
+
+
+</div>
+<div class="comment">
   <p>
-    {{comment.user.username}}
+    Comment
   </p>
-  <p>
-    {{comment.comment}}
-  </p>
-  <p>
-    {{comment.created_at.strftime("%Y-%m-%d")}}
-  </p>
-  <a href="/blog/comment/{{comment.key().id_or_name()}}">Edit</a>
-  <form action="/blog/comment/{{comment.key().id_or_name()}}/delete" method="post">
-    <input type="submit" value="Delete">
+  <form action="/blog/comment" method="post">
+    <input type="hidden" name="post_id" value="{{post.key().id_or_name()}}">
+    <textarea name="comment" rows="4" cols="20">{{comment}}</textarea>
+    <br>
+    <input type="submit">
   </form>
-  <br>
-{% endfor %}
+
+  <div class="error">
+    {{comment_error}}
+  </div>
+  <hr>
+  {% for comment in post.comment_set.order('-created_at') %}
+    <p>
+      {{comment.user.username}}
+    </p>
+    <p>
+      {{comment.comment}}
+    </p>
+    <p>
+      {{comment.created_at.strftime("%Y-%m-%d")}}
+    </p>
+    <a href="/blog/comment/{{comment.key().id_or_name()}}">Edit</a>
+    <form action="/blog/comment/{{comment.key().id_or_name()}}/delete" method="post">
+      <input type="submit" value="Delete">
+    </form>
+    <br>
+  {% endfor %}
+</div>
 
 {% endblock %}

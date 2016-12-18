@@ -1,3 +1,5 @@
+{% extends "base.html"%}
+{% block content %}
 <form action="/blog/comment/{{comment.key().id_or_name()}}" method="post">
   <textarea name="text" rows="8" cols="40">{{text}}</textarea>
   <br>
@@ -7,3 +9,4 @@
     {{error}}
   </div>
 </form>
+{% endblock %}

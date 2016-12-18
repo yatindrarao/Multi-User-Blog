@@ -1,3 +1,5 @@
+{% extends "login_base.html" %}
+{% block content %}
 <form action="/login" method="post">
   <label>
     <div>
@@ -17,3 +19,4 @@
   <input type="submit" value="login">
 </form>
 <a href="/signup">Signup</a>
+{% endblock %}
