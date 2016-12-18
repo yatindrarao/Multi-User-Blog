@@ -73,21 +73,18 @@ class Handler(webapp2.RequestHandler):
                                          '%s=%s; Path=/'% (name, cookie_val))
     def get_username(self):
         return self.request.cookies.get('username')
+
     def valid_user(self):
         username = self.get_username()
         if check_secure_val(username):
             return True
         else:
             return False
+
     def initialize(self, *a, **kw):
         webapp2.RequestHandler.initialize(self, *a, **kw)
         username = check_secure_val(self.get_username())
         self.user = User.by_name(username)
-
-        # cookie_val = self.get_username()
-        # if cookie_val:
-        #     username = check_secure_val(cookie_val)
-        #     self.user = User.by_name(username)
 
     def authenticate_user(self, id):
         if self.user.key().id_or_name() == id:
@@ -97,9 +94,7 @@ class Handler(webapp2.RequestHandler):
 
 class WelcomePage(Handler):
     def get(self):
-        username = self.get_username()
-        user_name = check_secure_val(username)
-        if user_name:
+        if self.user:
             self.render("welcome.html",username=user_name)
         else:
             self.redirect("/login")
@@ -134,9 +129,11 @@ class Login(Handler):
 
 class Logout(Handler):
     def get(self):
-        self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
-        self.redirect("/login")
-
+        if self.user:
+            self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
+            self.redirect("/login")
+        else:
+            self.redirect("/login")
 
 class SignupForm(Handler):
     """docstring for SignupForm Class."""
@@ -221,11 +218,6 @@ class Post(db.Model):
         key = db.Key.from_path('Post', int(id), parent=blog_key())
         return db.get(key)
 
-# def like_key(name = 'default'):
-#     return db.Key.from_path('likes', name)
-#
-# def comment_key(name = 'default'):
-#     return db.Key.from_path('comments', name)
 
 class Likes(db.Model):
     post = db.ReferenceProperty(Post)
@@ -377,6 +369,7 @@ class EditComment(Handler):
                 self.render("post.html",post=comment.post, comment_error=error)
         else:
             self.redirect("/login")
+
     def post(self, id):
         if self.user:
             new_comment = self.request.get('text')
