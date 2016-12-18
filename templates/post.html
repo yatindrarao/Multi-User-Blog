@@ -6,19 +6,24 @@
 </p>
 <br>
 <p>
-  {{post.created_at.strftime("%Y-%m-%d")}}
+  created at : {{post.created_at.strftime("%Y-%m-%d")}}
 </p>
-<form  action="/blog/like" method="post">
-  <input type="hidden" name="post_key" value="{{post.key().id_or_name()}}">
-  <button>Like</button>
-  <div class="error">
-    {{error}}
-  </div>
-</form>
 <p>
-  {{post.likes}}
+  last modified at : {{post.last_modified.strftime("%Y-%m-%d")}}
 </p>
-<a href="/blog/{{post.key().id_or_name()}}/edit">Edit</a>{{error}}
+<p>
+  <form  action="/blog/like" method="post">
+    <input type="hidden" name="post_id" value="{{post.key().id_or_name()}}">
+    <button>Like</button>
+    <div class="error">
+      {{error}}
+    </div>
+  </form>
+</p>
+<p>
+  {{post.likes_set.count()}}
+</p>
+<a href="/blog/{{post.key().id_or_name()}}/edit">Edit</a>
 
 <form action="/blog/delete" method="POST">
     <input type="hidden" name="id" value="{{post.key().id_or_name()}}" />

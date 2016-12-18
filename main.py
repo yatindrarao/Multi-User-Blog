@@ -9,6 +9,8 @@ import hashlib
 import random
 import string
 import time
+import datetime
+
 
 template_dir = os.path.join(os.path.dirname(__file__),'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
@@ -206,6 +208,7 @@ class Post(db.Model):
     content = db.TextProperty(required = True)
     created_at = db.DateTimeProperty(auto_now_add = True)
     created_by = db.IntegerProperty(required = True)
+    last_modified = db.DateTimeProperty()
     #
     # def render(self):
     #     self._render_text = self.content.replace('\n', '<br>')
@@ -247,8 +250,10 @@ class NewPost(Handler):
         subject = self.request.get("subject")
         content = self.request.get("content")
         created_by = self.user.key().id_or_name()
+        last_modified = datetime.datetime.now()
         if subject and content:
-            post = Post(subject=subject, content=content, created_by=created_by)
+            post = Post(subject=subject, content=content,
+                        created_by=created_by, last_modified=last_modified)
             post.put()
             self.redirect("/blog/%s" % post.key().id())
         else:
@@ -276,6 +281,7 @@ class EditPost(Handler):
         if subject and content:
             post.subject = subject
             post.content = content
+            post.last_modified = datetime.datetime.now()
             post.put()
             self.redirect("/blog/%s" % post.key().id())
         else:
@@ -301,21 +307,20 @@ class DestroyPost(Handler):
 
 class LikePost(Handler):
     def post(self):
-        id = self.request.get('post_key')
+        id = self.request.get('post_id')
         post = Post.get_by_id(int(id))
-        posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
         if self.authenticate_user(post.created_by):
             error = "You cannot like your own posts"
-            self.render("blog.html", posts=posts, error=error)
+            self.render("post.html", post=post, error=error)
         else:
             likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
             if likes:
-                error = "You already liked this post"
-                self.render("blog.html", posts=posts, error=error)
+                error = "You already liked this post before"
+                self.render("post.html", post=post, error=error)
             else:
                 like = Likes(post=post, user=self.user)
                 like.put()
-                self.redirect("/blog")
+                self.redirect("/blog/" + str(post.key().id_or_name()))
 
 app = webapp2.WSGIApplication([('/signup', SignupForm),
                                ('/login', Login),

@@ -15,14 +15,6 @@
       {{post.content}}
     </div>
   </div>
-  <form  action="/blog/like" method="post">
-    <input type="hidden" name="post_key" value="{{post.key().id_or_name()}}">
-    <button>Like</button>
-    <div class="error">
-      {{error}}
-    </div>
-  </form>
-  {{post.likes_set.count()}}
   {% endfor %}
 </div>
 {% endblock %}
