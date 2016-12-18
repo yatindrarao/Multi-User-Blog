@@ -241,7 +241,7 @@ class Comment(db.Model):
 
 class MainPage(Handler):
     def get(self):
-        if self.valid_user():
+        if self.user:
             posts = db.GqlQuery("SELECT * from Post ORDER BY created_at DESC")
             self.render("blog.html", posts=posts)
         else:
@@ -249,10 +249,9 @@ class MainPage(Handler):
 
 class BlogPost(Handler):
     def get(self, id):
-        if self.valid_user():
+        if self.user:
             post = Post.by_id(id)
             if post:
-                # likes = Likes.all().filter("post =", post)
                 likes = post.likes_set.get()
                 self.render("post.html", post=post)
             else:
@@ -262,7 +261,7 @@ class BlogPost(Handler):
 
 class NewPost(Handler):
     def get(self):
-        if self.valid_user():
+        if self.user:
             self.render("newpost.html")
         else:
             self.redirect("/login")
@@ -283,7 +282,7 @@ class NewPost(Handler):
 
 class EditPost(Handler):
     def get(self, id):
-        if self.valid_user():
+        if self.user:
             post = Post.by_id(id)
             if self.authenticate_user(post.created_by):
                 self.render("editpost.html", subject=post.subject,
@@ -310,39 +309,45 @@ class EditPost(Handler):
 
 class DestroyPost(Handler):
     def post(self):
-        id = self.request.get('id')
-        post = Post.by_id(id)
-        if self.authenticate_user(post.created_by):
-            # db.delete(post.comment_set)  # To Delete likes and comments
-            # db.delete(post.likes_set)
-            res = db.delete(post)
-            time.sleep(0.1)
-            '''
-            To solve the eventual consistency issue use ancestor query by
-            creating entity group  instead of time.sleep()
-            '''
-            self.redirect("/blog")
+        if self.user:
+            id = self.request.get('id')
+            post = Post.by_id(id)
+            if self.authenticate_user(post.created_by):
+                # db.delete(post.comment_set)  # To Delete likes and comments
+                # db.delete(post.likes_set)
+                res = db.delete(post)
+                time.sleep(0.1)
+                '''
+                To solve the eventual consistency issue use ancestor query by
+                creating entity group  instead of time.sleep()
+                '''
+                self.redirect("/blog")
+            else:
+                error = "You are not authorized to delete this post"
+                self.render("post.html", post=post, error=error)
         else:
-            error = "You are not authorized to delete this post"
-            self.render("post.html", post=post, error=error)
-
+            self.redirect("/login")
 class LikePost(Handler):
     def post(self):
-        id = self.request.get('post_id')
-        post = Post.by_id(id)
-        if self.authenticate_user(post.created_by):
-            error = "You cannot like your own posts"
-            self.render("post.html", post=post, error=error)
-        else:
-            likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
-            if likes:
-                error = "You already liked this post before"
+        if self.user:
+            id = self.request.get('post_id')
+            post = Post.by_id(id)
+            if self.authenticate_user(post.created_by):
+                error = "You cannot like your own posts"
                 self.render("post.html", post=post, error=error)
             else:
-                like = Likes(post=post, user=self.user)
-                like.put()
-                time.sleep(0.1)
-                self.redirect("/blog/" + str(post.key().id_or_name()))
+                likes = Likes.all().filter("post =", post).filter("user = ", self.user).count()
+                if likes:
+                    error = "You already liked this post before"
+                    self.render("post.html", post=post, error=error)
+                else:
+                    like = Likes(post=post, user=self.user)
+                    like.put()
+                    time.sleep(0.1)
+                    self.redirect("/blog/" + str(post.key().id_or_name()))
+        else:
+            self.redirect("/login")
+
 
 class NewComment(Handler):
     def post(self):
