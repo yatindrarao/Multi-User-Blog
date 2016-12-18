@@ -208,7 +208,7 @@ class Post(db.Model):
     content = db.TextProperty(required = True)
     created_at = db.DateTimeProperty(auto_now_add = True)
     created_by = db.IntegerProperty(required = True)
-    last_modified = db.DateTimeProperty()
+    last_modified = db.DateTimeProperty(auto_now = True)
     #
     # def render(self):
     #     self._render_text = self.content.replace('\n', '<br>')
@@ -224,7 +224,7 @@ class Comment(db.Model):
     post = db.ReferenceProperty(Post)
     user = db.ReferenceProperty(User)
     created_at = db.DateTimeProperty(auto_now_add = True)
-    last_modified = db.DateTimeProperty()
+    last_modified = db.DateTimeProperty(auto_now = True)
 
 class MainPage(Handler):
     def get(self):
@@ -258,7 +258,6 @@ class NewPost(Handler):
         subject = self.request.get("subject")
         content = self.request.get("content")
         created_by = self.user.key().id_or_name()
-        last_modified = datetime.datetime.now()
         if subject and content:
             post = Post(subject=subject, content=content,
                         created_by=created_by, last_modified=last_modified)
@@ -289,7 +288,6 @@ class EditPost(Handler):
         if subject and content:
             post.subject = subject
             post.content = content
-            post.last_modified = datetime.datetime.now()
             post.put()
             self.redirect("/blog/%s" % post.key().id())
         else:
@@ -363,7 +361,6 @@ class EditComment(Handler):
             comment = Comment.get_by_id(int(id))
             if new_comment:
                 comment.comment = new_comment
-                comment.last_modified = datetime.datetime.now()
                 comment.put()
                 self.redirect("/blog/"+str(comment.post.key().id_or_name()))
             else:
