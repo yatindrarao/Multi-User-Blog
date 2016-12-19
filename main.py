@@ -312,19 +312,22 @@ class NewPost(Handler):
             self.redirect("/login")
 
     def post(self):
-        subject = self.request.get("subject")
-        content = self.request.get("content")
-        created_by = self.user.key().id_or_name()
-        if subject and content:
-            post = Post(parent=blog_key(), subject=subject, content=content,
-                        created_by=created_by)
-            post.put()
-            self.redirect("/blog/%s" % post.key().id())
+        if self.user:
+            subject = self.request.get("subject")
+            content = self.request.get("content")
+            created_by = self.user.key().id_or_name()
+            if subject and content:
+                post = Post(parent=blog_key(), subject=subject, content=content,
+                            created_by=created_by)
+                post.put()
+                self.redirect("/blog/%s" % post.key().id())
+            else:
+                # If username or password are empty, rerender form with error msg
+                error = "subject and content both are required!"
+                self.render("newpost.html", subject=subject,
+                            content=content, error=error)
         else:
-            # If username or password are empty, rerender form with error msg
-            error = "subject and content both are required!"
-            self.render("newpost.html", subject=subject,
-                        content=content, error=error)
+            self.redirect("/login")
 
 
 class EditPost(Handler):
@@ -342,19 +345,28 @@ class EditPost(Handler):
             self.redirect("/login")
 
     def post(self, id):
-        subject = self.request.get("subject")
-        content = self.request.get("content")
-        post = Post.by_id(id)
-        if subject and content:
-            post.subject = subject
-            post.content = content
-            post.put()
-            self.redirect("/blog/%s" % post.key().id())
-        else:
-            error = "subject and content both are required!"
-            self.render("editpost.html", subject=subject, content=content,
-                        id=id, error=error)
+        if self.user:
+            subject = self.request.get("subject")
+            content = self.request.get("content")
+            post = Post.by_id(id)
+            if post:
+                if self.authenticate_user(post.created_by):
+                    if subject and content:
+                        post.subject = subject
+                        post.content = content
+                        post.put()
+                        self.redirect("/blog/%s" % post.key().id())
+                    else:
+                        error = "subject and content both are required!"
+                        self.render("editpost.html", subject=subject, content=content,
+                                    id=id, error=error)
+                else:
+                    self.redirect("/blog/" + str(post.key().id_or_name()))
 
+            else:
+                self.redirect("/blog")
+        else:
+            self.redirect("/login")
 
 class DestroyPost(Handler):
     def post(self):
@@ -427,14 +439,17 @@ class EditComment(Handler):
     def get(self, id):
         if self.user:
             comment = Comment.get_by_id(int(id))
-            if self.authenticate_user(comment.user.key().id_or_name()):
-                self.render("comment.html",
-                            comment=comment, text=comment.comment)
+            if comment:
+                if self.authenticate_user(comment.user.key().id_or_name()):
+                    self.render("comment.html",
+                                comment=comment, text=comment.comment)
+                else:
+                    # User can edit his own comments only
+                    error = "You are authorized to edit this comment"
+                    self.render("post.html",
+                                post=comment.post, comment_error=error)
             else:
-                # User can edit his own comments only
-                error = "You are authorized to edit this comment"
-                self.render("post.html",
-                            post=comment.post, comment_error=error)
+                self.redirect("/blog")
         else:
             self.redirect("/login")
 
@@ -442,15 +457,22 @@ class EditComment(Handler):
         if self.user:
             new_comment = self.request.get('text')
             comment = Comment.get_by_id(int(id))
-            if new_comment:
-                comment.comment = new_comment
-                comment.put()
-                time.sleep(0.1)
-                self.redirect("/blog/"+str(comment.post.key().id_or_name()))
+            if comment:
+                if self.authenticate_user(comment.user.key().id_or_name()):
+                    if new_comment:
+                        comment.comment = new_comment
+                        comment.put()
+                        time.sleep(0.1)
+                        self.redirect("/blog/"+str(comment.post.key().id_or_name()))
+                    else:
+                        error = "Comment can't be blank"
+                        self.render("comment.html",
+                                    error=error, text=new_comment, comment=comment)
+                else:
+                    error = "You are not authorized to edit this comment"
+                    self.render("post.html", post=comment.post, comment_error=error)
             else:
-                error = "Comment can't be blank"
-                self.render("comment.html",
-                            error=error, text=new_comment, comment=comment)
+                self.redirect("/blog")
         else:
             self.redirect("/login")
 
