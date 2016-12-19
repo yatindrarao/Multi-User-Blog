@@ -3,15 +3,18 @@ A multi user blog where user can do theses things:
 - post content
 - comment on posts
 - like posts
-It also comes with seperate user accounts with appropriate permission.
+
+It also comes with separate user accounts with appropriate permissions.
 
 ## Getting Started
 ### Compiling and Running
-This webapp is developed in python 2.7. To run the program in local environment
-run following command from terminal.
+This webapp is developed in python 2.7. and Google App Engine. To run the program in local environment you need to install Google App Engine.
+You can follow this guide: `https://cloud.google.com/appengine/docs/python/download` .
+After installation you can run below command.
 ```
 dev_appserver.py .
 ```
+The default web address would be `localhost:8080`.
 Here is the list of pages with their links:
 - Signup `/signup`
 - Login `/login`
