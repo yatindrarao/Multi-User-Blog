@@ -1,4 +1,6 @@
 # Multi User Blog
+Project is available at: https://multi-blog-153004.appspot.com/
+
 A multi user blog where user can do theses things:
 - post content
 - comment on posts
@@ -9,7 +11,8 @@ It also comes with separate user accounts with appropriate permissions.
 ## Getting Started
 ### Compiling and Running
 This webapp is developed in python 2.7. and Google App Engine. To run the program in local environment you need to install Google App Engine.
-You can follow this guide: `https://cloud.google.com/appengine/docs/python/download` .
+You can follow this guide: https://cloud.google.com/appengine/docs/python/download 
+
 After installation you can run below command.
 ```
 dev_appserver.py .
