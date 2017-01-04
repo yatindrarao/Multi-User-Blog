@@ -1,5 +1,5 @@
 # Multi User Blog
-Project is available at: https://multi-blog-153004.appspot.com/
+Project is available at: https://multi-blog-153004.appspot.com/blog
 
 A multi user blog where user can do theses things:
 - post content
